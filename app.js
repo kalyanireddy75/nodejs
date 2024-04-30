@@ -54,6 +54,79 @@ db.serialize(() => {
 // Middleware
 app.use(bodyParser.json());
 
+// Routes
+app.post('/tasks', (req, res) => {
+  const { title, description, status, assignee_id } = req.body;
+  if (!title) {
+    return res.status(400).json({ error: 'Title is required' });
+  }
+
+  const sql = `INSERT INTO Tasks (title, description, status, assignee_id) VALUES (?, ?, ?, ?)`;
+  db.run(sql, [title, description, status, assignee_id], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.status(201).json({ message: 'Task created successfully', id: this.lastID });
+  });
+});
+
+app.get('/tasks', (req, res) => {
+  db.all('SELECT * FROM Tasks', (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ tasks: rows });
+  });
+});
+
+app.get('/tasks/:id', (req, res) => {
+  const { id } = req.params;
+  db.get('SELECT * FROM Tasks WHERE id = ?', [id], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (!row) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    res.json({ task: row });
+  });
+});
+
+app.put('/tasks/:id', (req, res) => {
+  const { id } = req.params;
+  const { title, description, status, assignee_id } = req.body;
+  if (!title) {
+    return res.status(400).json({ error: 'Title is required' });
+  }
+
+  const sql = `UPDATE Tasks SET title = ?, description = ?, status = ?, assignee_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+  db.run(sql, [title, description, status, assignee_id, id], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    res.json({ message: 'Task updated successfully' });
+  });
+});
+
+app.delete('/tasks/:id', (req, res) => {
+  const { id } = req.params;
+
+  const sql = `DELETE FROM Tasks WHERE id = ?`;
+  db.run(sql, [id], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    res.json({ message: 'Task deleted successfully' });
+  });
+});
+
+
 // Authentication middleware
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
